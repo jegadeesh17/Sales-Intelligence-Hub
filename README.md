@@ -152,12 +152,26 @@ python -m streamlit run ".\Sales Intelligence Hub\app\app.py"
 ### **1. Install Dependencies**
 
 ```bash
-pip install pandas streamlit psycopg2 sqlalchemy
+pip install pandas streamlit psycopg2 sqlalchemy python-dotenv bcrypt
 ```
 
 ---
 
-### **2. Initialize PostgreSQL Schema & Triggers**
+### **2. Configure Environment Variables**
+
+Create a file named `.env` in the root of the project folder:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=sales_management
+DB_USER=postgres
+DB_PASSWORD=your_postgres_password
+```
+
+---
+
+### **3. Initialize PostgreSQL Schema & Triggers**
 
 Execute the SQL definitions in your database client:
 
