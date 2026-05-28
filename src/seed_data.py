@@ -14,14 +14,19 @@
 import pandas as pd
 from pathlib import Path
 from sqlalchemy import create_engine, text
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Build the path to the data folder relative to this script file.
 # Using Path(__file__) means this works regardless of where you run it from.
 DATA_DIR = Path(__file__).resolve().parent.parent / 'data'
 
 # SQLAlchemy engine — the recommended way to use pandas .to_sql() with PostgreSQL.
-# Connection string format: postgresql://username:password@host:port/database
-engine = create_engine("postgresql://postgres:jaundice@localhost:5432/sales_management")
+db_url = f"postgresql://{os.getenv('DB_USER', 'postgres')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_NAME', 'sales_management')}"
+engine = create_engine(db_url)
 
 
 def seed_database():
@@ -44,6 +49,10 @@ def seed_database():
             # Users reference branches, so branches must already exist.
             print("Loading Users...")
             users_df = pd.read_csv(DATA_DIR / 'users.csv')
+            import bcrypt
+            users_df['password'] = users_df['password'].apply(
+                lambda p: bcrypt.hashpw(str(p).encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            )
             users_df.to_sql("users", con=connection, if_exists="append", index=False)
 
             # Step 3: Load Customer Sales
