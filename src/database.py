@@ -101,3 +101,72 @@ def fetch_sales_data(role, branch_id=None):
     cur.close()
     conn.close()
     return data
+
+
+# ── Add New Sale & Fetch Branches ─────────────────────────────────────────────
+
+def fetch_branches():
+    """Fetch list of all branches from the database."""
+    conn = get_db_connection()
+    cur  = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT branch_id, branch_name FROM branches ORDER BY branch_name")
+    branches = cur.fetchall()
+    cur.close()
+    conn.close()
+    return branches
+
+
+def add_new_sale(branch_id, date, name, mobile_number, product_name, gross_sales, amount_paid, payment_method, status='Open'):
+    """
+    Insert a new customer sale and initial payment split inside a database transaction.
+    The database trigger 'after_payment_insert' will auto-recalculate the balance columns.
+    """
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                # 1. Insert the customer sale record
+                cur.execute("""
+                    INSERT INTO customer_sales (branch_id, date, name, mobile_number, product_name, gross_sales, received_amount, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, 0.00, %s)
+                    RETURNING sale_id
+                """, (branch_id, date, name, mobile_number, product_name, gross_sales, status))
+                
+                sale_id = cur.fetchone()[0]
+                
+                # 2. Insert initial payment split if amount_paid > 0
+                if amount_paid > 0:
+                    cur.execute("""
+                        INSERT INTO payment_splits (sale_id, payment_date, amount_paid, payment_method)
+                        VALUES (%s, %s, %s, %s)
+                    """, (sale_id, date, amount_paid, payment_method))
+                    
+        return True, "Sale added successfully!"
+    except psycopg2.IntegrityError as e:
+        if "mobile_number" in str(e):
+            return False, "Error: A customer with this mobile number already exists."
+        return False, f"Integrity error: {e}"
+    except Exception as e:
+        return False, f"Database error: {e}"
+    finally:
+        conn.close()
+
+
+def add_payment(sale_id, amount_paid, payment_date, payment_method):
+    """
+    Insert a new payment split into the payment_splits table.
+    The database trigger 'after_payment_insert' will auto-recalculate the balance columns in customer_sales.
+    """
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO payment_splits (sale_id, payment_date, amount_paid, payment_method)
+                    VALUES (%s, %s, %s, %s)
+                """, (sale_id, payment_date, amount_paid, payment_method))
+        return True, "Payment recorded successfully!"
+    except Exception as e:
+        return False, f"Database error: {e}"
+    finally:
+        conn.close()
