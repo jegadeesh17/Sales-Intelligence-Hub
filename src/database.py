@@ -170,3 +170,219 @@ def add_payment(sale_id, amount_paid, payment_date, payment_method):
         return False, f"Database error: {e}"
     finally:
         conn.close()
+
+
+# ── SQL Predefined Queries for Analytics Tab ─────────────────────────────────
+
+PREDEFINED_QUERIES = {
+    1: {
+        "title": "1. Retrieve all records from the customer_sales table",
+        "category": "Basic Queries",
+        "description": "Shows all sales records.",
+        "sql_super": "SELECT * FROM customer_sales ORDER BY sale_id;",
+        "sql_branch": "SELECT * FROM customer_sales WHERE branch_id = %s ORDER BY sale_id;",
+    },
+    2: {
+        "title": "2. Retrieve all records from the branches table",
+        "category": "Basic Queries",
+        "description": "Shows details of branches.",
+        "sql_super": "SELECT * FROM branches ORDER BY branch_id;",
+        "sql_branch": "SELECT * FROM branches WHERE branch_id = %s ORDER BY branch_id;",
+    },
+    3: {
+        "title": "3. Retrieve all records from the payment_splits table",
+        "category": "Basic Queries",
+        "description": "Shows all recorded payments/installments.",
+        "sql_super": "SELECT * FROM payment_splits ORDER BY payment_id;",
+        "sql_branch": """
+            SELECT p.* 
+            FROM payment_splits p 
+            JOIN customer_sales s ON p.sale_id = s.sale_id 
+            WHERE s.branch_id = %s 
+            ORDER BY p.payment_id;
+        """,
+    },
+    4: {
+        "title": "4. Show only sales that are still open",
+        "category": "Basic Queries",
+        "description": "Filter sales where payment is pending (status is 'Open').",
+        "sql_super": "SELECT * FROM customer_sales WHERE status = 'Open' ORDER BY sale_id;",
+        "sql_branch": "SELECT * FROM customer_sales WHERE status = 'Open' AND branch_id = %s ORDER BY sale_id;",
+    },
+    5: {
+        "title": "5. Calculate the total gross sales value across branches",
+        "category": "Aggregation Queries",
+        "description": "Sum of all sales amounts.",
+        "sql_super": "SELECT SUM(gross_sales) AS total_gross_sales FROM customer_sales;",
+        "sql_branch": "SELECT SUM(gross_sales) AS total_gross_sales FROM customer_sales WHERE branch_id = %s;",
+    },
+    6: {
+        "title": "6. Calculate the total amount collected across all sales",
+        "category": "Aggregation Queries",
+        "description": "Sum of all received amounts.",
+        "sql_super": "SELECT SUM(received_amount) AS total_received_amount FROM customer_sales;",
+        "sql_branch": "SELECT SUM(received_amount) AS total_received_amount FROM customer_sales WHERE branch_id = %s;",
+    },
+    7: {
+        "title": "7. Calculate the total outstanding amount across all sales",
+        "category": "Aggregation Queries",
+        "description": "Sum of all pending amounts.",
+        "sql_super": "SELECT SUM(pending_amount) AS total_pending_amount FROM customer_sales;",
+        "sql_branch": "SELECT SUM(pending_amount) AS total_pending_amount FROM customer_sales WHERE branch_id = %s;",
+    },
+    8: {
+        "title": "8. Count how many sales each branch has recorded",
+        "category": "Aggregation Queries",
+        "description": "Number of sales per branch.",
+        "sql_super": "SELECT branch_id, COUNT(sale_id) AS total_sales_count FROM customer_sales GROUP BY branch_id;",
+        "sql_branch": "SELECT branch_id, COUNT(sale_id) AS total_sales_count FROM customer_sales WHERE branch_id = %s GROUP BY branch_id;",
+    },
+    9: {
+        "title": "9. Show each sale along with the name of its branch",
+        "category": "Join-Based Queries",
+        "description": "Combines sale records with branch names using a JOIN.",
+        "sql_super": """
+            SELECT s.sale_id, s.name AS customer_name, s.product_name, b.branch_name, s.gross_sales
+            FROM customer_sales s
+            JOIN branches b ON s.branch_id = b.branch_id
+            ORDER BY s.sale_id;
+        """,
+        "sql_branch": """
+            SELECT s.sale_id, s.name AS customer_name, s.product_name, b.branch_name, s.gross_sales
+            FROM customer_sales s
+            JOIN branches b ON s.branch_id = b.branch_id
+            WHERE s.branch_id = %s
+            ORDER BY s.sale_id;
+        """,
+    },
+    10: {
+        "title": "10. Show total gross sales per branch, highest first",
+        "category": "Join-Based Queries",
+        "description": "Sum of gross sales grouped by branch, sorted descending.",
+        "sql_super": """
+            SELECT b.branch_name, SUM(s.gross_sales) AS branch_total_gross_sales
+            FROM customer_sales s
+            JOIN branches b ON s.branch_id = b.branch_id
+            GROUP BY b.branch_name
+            ORDER BY branch_total_gross_sales DESC;
+        """,
+        "sql_branch": """
+            SELECT b.branch_name, SUM(s.gross_sales) AS branch_total_gross_sales
+            FROM customer_sales s
+            JOIN branches b ON s.branch_id = b.branch_id
+            WHERE s.branch_id = %s
+            GROUP BY b.branch_name;
+        """,
+    },
+    11: {
+        "title": "11. Show each sale alongside the payment method used",
+        "category": "Join-Based Queries",
+        "description": "Unique mapping of sales and payment methods.",
+        "sql_super": """
+            SELECT DISTINCT s.sale_id, s.name AS customer_name, p.payment_method
+            FROM customer_sales s
+            JOIN payment_splits p ON s.sale_id = p.sale_id
+            ORDER BY s.sale_id;
+        """,
+        "sql_branch": """
+            SELECT DISTINCT s.sale_id, s.name AS customer_name, p.payment_method
+            FROM customer_sales s
+            JOIN payment_splits p ON s.sale_id = p.sale_id
+            WHERE s.branch_id = %s
+            ORDER BY s.sale_id;
+        """,
+    },
+    12: {
+        "title": "12. Show each sale along with the responsible branch admin's name",
+        "category": "Join-Based Queries",
+        "description": "Combines sale records with branch admin details.",
+        "sql_super": """
+            SELECT s.sale_id, s.name AS customer_name, b.branch_name, b.branch_admin_name
+            FROM customer_sales s
+            JOIN branches b ON s.branch_id = b.branch_id
+            ORDER BY s.sale_id;
+        """,
+        "sql_branch": """
+            SELECT s.sale_id, s.name AS customer_name, b.branch_name, b.branch_admin_name
+            FROM customer_sales s
+            JOIN branches b ON s.branch_id = b.branch_id
+            WHERE s.branch_id = %s
+            ORDER BY s.sale_id;
+        """,
+    },
+    13: {
+        "title": "13. Find all sales where outstanding amount > Rs.5000",
+        "category": "Financial Tracking Queries",
+        "description": "Shows customers with large pending balances.",
+        "sql_super": """
+            SELECT sale_id, name, branch_id, pending_amount
+            FROM customer_sales
+            WHERE pending_amount > 5000.00
+            ORDER BY pending_amount DESC;
+        """,
+        "sql_branch": """
+            SELECT sale_id, name, branch_id, pending_amount
+            FROM customer_sales
+            WHERE pending_amount > 5000.00 AND branch_id = %s
+            ORDER BY pending_amount DESC;
+        """,
+    },
+    14: {
+        "title": "14. Show the top 3 highest gross sales",
+        "category": "Financial Tracking Queries",
+        "description": "Retrieves the top 3 sales by gross amount.",
+        "sql_super": """
+            SELECT sale_id, name, gross_sales
+            FROM customer_sales
+            ORDER BY gross_sales DESC
+            LIMIT 3;
+        """,
+        "sql_branch": """
+            SELECT sale_id, name, gross_sales
+            FROM customer_sales
+            WHERE branch_id = %s
+            ORDER BY gross_sales DESC
+            LIMIT 3;
+        """,
+    },
+    15: {
+        "title": "15. Show total collections broken down by payment method",
+        "category": "Financial Tracking Queries",
+        "description": "Sums collected amounts grouped by cash/UPI/card.",
+        "sql_super": """
+            SELECT payment_method, SUM(amount_paid) AS total_collected
+            FROM payment_splits
+            GROUP BY payment_method
+            ORDER BY total_collected DESC;
+        """,
+        "sql_branch": """
+            SELECT p.payment_method, SUM(p.amount_paid) AS total_collected
+            FROM payment_splits p
+            JOIN customer_sales s ON p.sale_id = s.sale_id
+            WHERE s.branch_id = %s
+            GROUP BY p.payment_method
+            ORDER BY total_collected DESC;
+        """,
+    }
+}
+
+
+def execute_query(sql_query, params=None):
+    """
+    Execute a raw SQL query safely and return the results as a list of dictionaries.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute(sql_query, params)
+        if cur.description:
+            data = cur.fetchall()
+        else:
+            conn.commit()
+            data = []
+        return data, None
+    except Exception as e:
+        return None, str(e)
+    finally:
+        cur.close()
+        conn.close()

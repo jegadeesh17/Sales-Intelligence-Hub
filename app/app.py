@@ -16,7 +16,7 @@ import pandas as pd
 # Add the 'src' directory to Python's path to allow importing the database module
 sys.path.append(str(Path(__file__).resolve().parent.parent / 'src'))
 
-from database import verify_user, fetch_sales_data, fetch_branches, add_new_sale, add_payment
+from database import verify_user, fetch_sales_data, fetch_branches, add_new_sale, add_payment, PREDEFINED_QUERIES, execute_query
 
 # ── Page Configuration ────────────────────────────────────────────────────────
 st.set_page_config(page_title="Sales Intelligence Hub", layout="wide")
@@ -89,7 +89,7 @@ else:
 
     # Sidebar navigation / Tabs
     st.sidebar.divider()
-    page = st.sidebar.radio("Navigation", ["Sales Dashboard", "Add New Sale", "Record Payment"])
+    page = st.sidebar.radio("Navigation", ["Sales Dashboard", "Add New Sale", "Record Payment", "SQL Analytics"])
 
     # Fetch sales data for this user (filtered by role and branch automatically)
     raw_data = fetch_sales_data(user_info['role'], user_info['branch_id'])
@@ -312,3 +312,57 @@ else:
                         )
                     else:
                         st.error(message)
+
+    elif page == "SQL Analytics":
+        st.title("SQL Analytics Hub 📊")
+        st.markdown("""
+        Explore database insights using predefined analytical queries. 
+        Super Admins can also customize and run custom SQL queries.
+        """)
+
+        # 1. Group queries by category for easier navigation
+        categories = sorted(list(set(q["category"] for q in PREDEFINED_QUERIES.values())))
+        selected_category = st.selectbox("Select Query Category", options=categories)
+
+        # Filter queries matching this category
+        cat_queries = {qid: q for qid, q in PREDEFINED_QUERIES.items() if q["category"] == selected_category}
+        query_options = {q["title"]: qid for qid, q in cat_queries.items()}
+        selected_title = st.selectbox("Select Query", options=list(query_options.keys()))
+        selected_qid = query_options[selected_title]
+        query_info = PREDEFINED_QUERIES[selected_qid]
+
+        st.info(f"**Query Description**: {query_info['description']}")
+
+        # Determine which template to display/run
+        is_super = user_info['role'] == 'Super Admin'
+        default_sql = query_info['sql_super'] if is_super else query_info['sql_branch']
+
+        # Determine if we should format custom queries
+        sql_to_run = default_sql
+        params = None if is_super else (user_info['branch_id'],)
+
+        if is_super:
+            edit_mode = st.checkbox("Edit / Customize SQL Query 📝", value=False)
+            if edit_mode:
+                sql_to_run = st.text_area("SQL Statement", value=default_sql, height=200)
+            else:
+                st.code(default_sql, language="sql")
+        else:
+            st.warning("🔒 Running in Branch-Filtered Mode. Showing only data for your branch.")
+            # Show the branch SQL so the user knows what is actually being executed
+            st.code(default_sql, language="sql")
+
+        # Run Query Button
+        if st.button("Run Query ⚡", use_container_width=True):
+            with st.spinner("Executing query..."):
+                results, error = execute_query(sql_to_run, params)
+                
+                if error:
+                    st.error(f"Failed to execute query: {error}")
+                elif results is not None:
+                    if len(results) > 0:
+                        res_df = pd.DataFrame(results)
+                        st.success(f"Query returned {len(res_df)} record(s).")
+                        st.dataframe(res_df, use_container_width=True)
+                    else:
+                        st.warning("No records returned by this query.")
