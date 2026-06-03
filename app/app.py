@@ -262,19 +262,19 @@ else:
                 sale_options.append(label)
                 sale_map[label] = s
 
-            with st.form("record_payment_form", clear_on_submit=False):
-                st.subheader("Select Sale & Payment Details")
-                selected_label = st.selectbox("Select Customer / Sale Record", options=sale_options)
-                
-                selected_sale = sale_map[selected_label]
-                pending_bal = float(selected_sale['pending_amount'])
+            st.subheader("Select Sale & Payment Details")
+            selected_label = st.selectbox("Select Customer / Sale Record", options=sale_options)
+            
+            selected_sale = sale_map[selected_label]
+            pending_bal = float(selected_sale['pending_amount'])
 
-                st.markdown(f"**Current Pending Balance**: Rs. {pending_bal:,.2f}")
-                
+            st.markdown(f"**Current Pending Balance**: Rs. {pending_bal:,.2f}")
+
+            with st.form("record_payment_form", clear_on_submit=False):
                 payment_amount = st.number_input(
                     "Amount Paid (Rs.)", 
                     min_value=0.0, 
-                    max_value=max(0.0, pending_bal),
+                    max_value=max(0.0, float(pending_bal)),
                     step=500.0, 
                     format="%.2f",
                     disabled=(pending_bal <= 0)
