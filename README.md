@@ -41,21 +41,16 @@ The platform shifts business logic directly into PostgreSQL using SQL triggers a
 ### **Project Structure**
 
 ```bash
-Sales-Intelligence-Hub/
+SalesIntelligenceHub/
 │
-├── data/                           # Raw CSV seed data
-│
-├── app/
-│   └── app.py                      # Streamlit RBAC dashboard application
-│
-├── src/
-│   ├── database.py                 # Database connection and query layer
-│   ├── seed_data.py                # Automated data ingestion and seeding script
-│   ├── sales_management.sql        # Core schema: tables, triggers, generated columns
-│   └── analytical_queries.sql     # Financial reporting SQL queries
-│
-├── project_presentation.ipynb     # Project summary notebook
-├── requirements.txt               # Python dependencies
+├── app/                          # Streamlit application files
+│   └── app.py                    # Main Streamlit dashboard
+├── data/                         # Project datasets
+├── docs/                         # Documentation and visualizations
+├── models/                       # Saved trained models
+├── notebooks/                    # Jupyter notebooks (Source of Truth)
+├── src/                          # Core Python logic and scripts
+├── requirements.txt              # Python dependencies
 └── README.md
 ```
 
@@ -163,7 +158,7 @@ streamlit run app/app.py
 ```bash
 git clone https://github.com/jegadeesh17/Sales-Intelligence-Hub.git
 
-cd Sales-Intelligence-Hub
+cd SalesIntelligenceHub
 ```
 
 ---
