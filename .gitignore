@@ -147,3 +147,5 @@ logs-*.txt
 *.pdf
 *.doc
 *.wpf
+
+data/customer_sales.xlsx
