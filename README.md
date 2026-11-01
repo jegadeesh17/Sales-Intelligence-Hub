@@ -1,231 +1,78 @@
 # Sales Intelligence Hub
 
----
+A multi-branch sales and installment-collections ledger that keeps its arithmetic in PostgreSQL, fronted by a Streamlit portal with role-based access. A trigger recomputes each sale's received amount from its payments, a generated column derives the pending balance, and branch admins only ever see their own branch.
 
-### **Project Overview**
+## Features
 
-Organizations with multiple branches face critical operational challenges: manual math errors in split payment calculations, lack of real-time financial visibility for directors, and security risks when branch managers access restricted data. This project builds a fully automated multi-branch sales monitoring and financial tracking system to solve these problems at the database layer.
+- **Normalized schema:** PostgreSQL tables for `branches`, `users`, `customer_sales` and `payment_splits`, defined in `src/sales_management.sql`.
+- **Trigger-maintained totals:** the PL/pgSQL function `update_received_amount_fn()` recalculates `received_amount` for a sale from its payment rows.
+- **Generated balance:** `pending_amount` is a stored generated column, `gross_sales - received_amount`, so it cannot drift from the two values it derives from.
+- **Role-based access:** Super Admins see every branch; Branch Admins are limited to their own branch through parameterized queries.
+- **Password hashing:** passwords are hashed with bcrypt when the database is seeded.
+- **Seeding script:** `src/seed_data.py` loads the CSVs in `data/` into the database.
+- **Analytical queries:** `src/analytical_queries.sql` holds the reporting and branch-performance queries.
+- **Streamlit dashboard:** sales and payment data by branch, with the view filtered by role.
 
-The platform shifts business logic directly into PostgreSQL using SQL triggers and generated columns, ensuring mathematical integrity without application-layer intervention. A secure Streamlit web portal enforces strict Role-Based Access Control (RBAC), giving directors a full view while locking branch admins into their own scoped data.
+## Quick start
 
----
-
-### **Key Features**
-
-* **Normalized 3NF Schema:** PostgreSQL database with `branches`, `users`, `customer_sales`, and `payment_splits` tables.
-* **SQL Trigger Automation:** PL/pgSQL server-side triggers auto-recalculate received amounts across ledgers on installment events.
-* **Generated Columns:** Postgres generated columns compute outstanding balances on the fly for guaranteed mathematical integrity.
-* **Role-Based Access Control:** Super Admins view all branches; Branch Admins are locked into their own branch via parameterized queries.
-* **bcrypt Authentication:** Secure password hashing for all user accounts.
-* **Automated Data Seeding:** Python-based CSV ingestion script to safely populate the database architecture.
-* **Interactive Streamlit Dashboard:** Live financial tracking portal with real-time sales and payment data.
-* **Analytical SQL Suite:** Curated SQL queries for financial reporting and branch performance analysis.
-
----
-
-### **Dataset**
-
-* **Source:** Multi-branch sales and payment records (seeded via CSV)
-* **Coverage:** Customer sales transactions, installment payments, branch operations
-* **Format:** CSV data seeded into PostgreSQL via automated ingestion
-
-#### **Key Tables**
-
-* `branches` — Branch master data and region information
-* `users` — Admin accounts with hashed passwords and role assignments
-* `customer_sales` — Sales transactions per customer per branch
-* `payment_splits` — Installment payment records linked to each sale
-
----
-
-### **Project Structure**
-
-```bash
-SalesIntelligenceHub/
-│
-├── app/                          # Streamlit application files
-│   └── app.py                    # Main Streamlit dashboard
-├── data/                         # Project datasets
-├── docs/                         # Documentation and visualizations
-├── models/                       # Saved trained models
-├── notebooks/                    # Jupyter notebooks (Source of Truth)
-├── src/                          # Core Python logic and scripts
-├── requirements.txt              # Python dependencies
-└── README.md
-```
-
----
-
-### **How It Works**
-
-### **1. Database Schema & Automation**
-
-* Creates a normalized 3NF schema in PostgreSQL
-* Defines generated columns for automatic balance computation
-
-```sql
--- Generated column: outstanding balance computed automatically
-ALTER TABLE customer_sales
-ADD COLUMN outstanding_balance NUMERIC
-GENERATED ALWAYS AS (total_amount - received_amount) STORED;
-```
-
----
-
-### **2. SQL Trigger Automation**
-
-PL/pgSQL triggers fire on every installment insert, update, or delete to keep ledger balances accurate:
-
-```sql
-CREATE OR REPLACE FUNCTION update_received_amount()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE customer_sales
-    SET received_amount = (
-        SELECT COALESCE(SUM(amount), 0)
-        FROM payment_splits
-        WHERE sale_id = NEW.sale_id
-    )
-    WHERE id = NEW.sale_id;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_update_received
-AFTER INSERT OR UPDATE OR DELETE ON payment_splits
-FOR EACH ROW EXECUTE FUNCTION update_received_amount();
-```
-
----
-
-### **3. Role-Based Access Control**
-
-The authentication system uses bcrypt hashing and parameterized queries to enforce scoped data access:
-
-| Role         | Access Level                              |
-| ------------ | ----------------------------------------- |
-| Super Admin  | All branches — full financial visibility  |
-| Branch Admin | Own branch only — scoped parameterized SQL|
-
----
-
-### **Model Performance**
-
-| Metric                     | Result                               |
-| -------------------------- | ------------------------------------ |
-| Mathematical Integrity     | 100% (trigger-guaranteed)            |
-| Balance Accuracy           | Real-time (generated columns)        |
-| Auth Security              | bcrypt hashed (no plaintext storage) |
-
----
-
-### **Interactive Application Deployment**
-
-The project features a secure **Streamlit Web Application** with RBAC-enforced views, real-time payment tracking, and branch-level financial summaries.
-
-#### **To Launch the Platform Locally:**
-```powershell
-streamlit run app/app.py
-```
-
-#### **Demo Logins:**
-
-| Role         | Username        | Password   |
-| ------------ | --------------- | ---------- |
-| Super Admin  | `superadmin`    | `super123` |
-| Branch Admin | `admin_chennai` | `admin123` |
-
----
-
-### **Technology Stack**
-
-| Category             | Tools                             |
-| -------------------- | --------------------------------- |
-| Programming          | Python                            |
-| Database             | PostgreSQL, PL/pgSQL              |
-| ORM / Integration    | Psycopg2, SQLAlchemy              |
-| Authentication       | bcrypt                            |
-| Data Processing      | Pandas                            |
-| Notebook Environment | Jupyter Notebook                  |
-| Web Framework        | Streamlit                         |
-
----
-
-### **Getting Started**
-
-### **1. Clone Repository**
+Requires Python and a running PostgreSQL server with an empty `sales_management` database.
 
 ```bash
 git clone https://github.com/jegadeesh17/Sales-Intelligence-Hub.git
-
-cd SalesIntelligenceHub
-```
-
----
-
-### **2. Configure Database**
-
-Ensure PostgreSQL is running with the `sales_management` database created. Update `.env` with your credentials:
-
-```env
-DB_HOST=localhost
-DB_NAME=sales_management
-DB_USER=your_user
-DB_PASSWORD=your_password
-```
-
----
-
-### **3. Install Dependencies**
-
-```bash
+cd Sales-Intelligence-Hub
+python -m venv .venv
+source .venv/Scripts/activate      # Windows Git Bash; use .venv/bin/activate elsewhere
 pip install -r requirements.txt
 ```
 
----
-
-### **4. Seed Database**
+Create a file named `.env` with your database settings (see [Configuration](#configuration)), create the schema by running `src/sales_management.sql` against the `sales_management` database, then seed and launch:
 
 ```bash
 python src/seed_data.py
-```
-
----
-
-### **5. Launch Dashboard**
-
-```bash
 streamlit run app/app.py
 ```
 
----
+## Usage
 
-### **Example Use Case**
+Sign in with one of the seeded demo accounts from `data/users.csv`. These are sample credentials for the synthetic data only; change them for any real use.
 
-A multi-branch retail organization can use this system to:
+| Role | Username | Password |
+|---|---|---|
+| Super Admin | `superadmin` | `super123` |
+| Branch Admin (Chennai) | `admin_chennai` | `admin123` |
 
-1. Track real-time payment collections and outstanding balances per branch
-2. Allow directors to compare branch-level financial performance
-3. Enforce data privacy so branch managers only see their own data
-4. Automatically reconcile payment splits without manual calculation
+The seed data holds 8 branches, 1,000 sales and 2,011 payment rows, all synthetic.
 
----
+## Running tests
 
-### **Future Improvements**
+This project has no automated test suite yet. `src/analytical_queries.sql` and the notebook `notebooks/SalesIntelligenceHub.ipynb` are the way to inspect the results.
 
-* PDF financial report generation for branch managers
-* Email alerting for overdue installments
-* Real-time branch performance dashboards with time-series trends
-* Integration with accounting software (Tally, QuickBooks)
+## Configuration
 
----
+`src/database.py` reads these variables from `.env` (defaults in brackets):
 
-### **Contributors**
+| Variable | Purpose |
+|---|---|
+| `DB_HOST` | PostgreSQL host (`localhost`) |
+| `DB_NAME` | Database name (`sales_management`) |
+| `DB_USER` | PostgreSQL user (`postgres`) |
+| `DB_PASSWORD` | PostgreSQL password |
 
-* **Jegadeesh D** — PostgreSQL schema design, PL/pgSQL trigger automation, RBAC authentication, data seeding, and Streamlit dashboard development
+## Project structure
 
----
+```
+app/        Streamlit dashboard
+data/       synthetic CSVs: branches, users, customer sales, payment splits
+notebooks/  walkthrough notebook
+src/        schema and trigger SQL, analytical queries, database access, seeding script
+```
 
-### **License**
+## Known limitations
 
-MIT License
+- The trigger function reads `NEW.sale_id`, which is null on a `DELETE`, so deleting a payment does not refresh that sale's `received_amount`. Inserts and updates are handled.
+- No automated tests.
+- The demo passwords are listed above and stored in plain text in `data/users.csv` before seeding hashes them.
+
+## License
+
+[MIT](LICENSE)
